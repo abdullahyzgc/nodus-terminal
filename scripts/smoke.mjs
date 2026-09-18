@@ -1,0 +1,97 @@
+import { _electron as electron, expect } from '@playwright/test'
+import { mkdtempSync, mkdirSync, readFileSync } from 'node:fs'
+import { resolve, join } from 'node:path'
+
+const root = resolve('.')
+mkdirSync(join(root, '.test-data'), { recursive: true })
+const directory = mkdtempSync(join(root, '.test-data', 'smoke-'))
+const environment = { ...process.env, NODUS_TEST_DATA: directory }
+delete environment.ELECTRON_RUN_AS_NODE
+delete environment.NODUS_DEV
+const password = 'test-only-vault-password'
+const failures = []
+let application
+try {
+  application = await electron.launch({ args: [root], env: environment })
+  let page = await application.firstWindow()
+  page.on('pageerror', (error) => failures.push(error.message))
+  await expect(page.getByRole('heading', { name: 'Kendi alanını oluştur.' })).toBeVisible()
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(11, 11, 13)')
+  await expect(page.locator('.gate-card')).toHaveCSS('background-color', 'rgb(22, 22, 24)')
+  await expect(page.locator('.gate-card .primary').first()).toHaveCSS('background-color', 'rgb(49, 95, 195)')
+  await expect(page.locator('.gate-card .primary').first()).toHaveCSS('color', 'rgb(255, 255, 255)')
+  await page.screenshot({ path: join(directory, 'welcome.png') })
+  await page.getByText('Google Drive üzerinden aç', { exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Google Drive', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'OAuth JSON seç', exact: true })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Google hesabına bağlan', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Drive kasasını aç', exact: true })).toBeDisabled()
+  await page.screenshot({ path: join(directory, 'drive-restore.png') })
+  await page.getByText('Google Drive üzerinden aç', { exact: true }).click()
+  await page.getByLabel('Kasa parolası', { exact: true }).fill(password)
+  await page.getByLabel('Parolayı doğrula').fill(password)
+  await page.getByRole('button', { name: 'Şifreli kasamı oluştur' }).click()
+  await expect(page.getByRole('heading', { name: 'İlk bağlantınla başla.' })).toBeVisible()
+  await page.getByRole('button', { name: 'Sunucu ekle', exact: true }).click()
+  await expect(page.locator('.modal[open]')).toHaveCSS('background-color', 'rgb(29, 29, 32)')
+  await page.screenshot({ path: join(directory, 'host-form.png') })
+  await page.getByLabel('Sunucu adı', { exact: true }).fill('Laravel Production')
+  await page.getByLabel('Adres', { exact: true }).fill('192.0.2.10')
+  await page.getByLabel('Sunucu parolası', { exact: true }).fill('test-only-ssh-password')
+  await page.getByLabel('Grup', { exact: true }).fill('Production')
+  await page.getByLabel('Favorilere ekle').check()
+  await page.getByRole('button', { name: 'Sunucuyu kaydet', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Laravel Production', exact: true })).toBeVisible()
+  await page.evaluate(async () => {
+    const vault = await window.nodus.read()
+    for (const [name, hostname, group] of [['API Server', '192.0.2.20', 'Production'], ['Staging', '192.0.2.30', 'Development']]) {
+      await window.nodus.saveHost({ ...vault.hosts[0], id: crypto.randomUUID(), name, hostname, group, favorite: false })
+    }
+  })
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'API Server', exact: true })).toBeVisible()
+  await expect(page.locator('.sidebar')).toHaveCSS('background-color', 'rgb(16, 16, 18)')
+  await expect(page.locator('.host-card').first()).toHaveCSS('background-color', 'rgb(22, 22, 24)')
+  await expect(page.locator('.nav-item.active').first()).toHaveCSS('color', 'rgb(138, 172, 242)')
+  await page.screenshot({ path: join(directory, 'hosts.png') })
+  await page.getByRole('button', { name: 'Kestirmeler', exact: true }).click()
+  await page.getByRole('button', { name: 'Yeni kestirme', exact: true }).click()
+  await page.getByLabel('Ad', { exact: true }).fill('Test kestirmesi')
+  await page.getByLabel('Komut', { exact: true }).fill('pwd')
+  await page.getByRole('button', { name: 'Kestirmeyi kaydet', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Test kestirmesi', exact: true })).toBeVisible()
+  await page.screenshot({ path: join(directory, 'snippets.png') })
+  await page.getByRole('button', { name: 'Ayarlar', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Google Drive', exact: true })).toBeVisible()
+  await expect(page.locator('.drive-panel').getByRole('status')).toContainText('Google Drive bağlı değil.')
+  await page.getByText('İlk bağlantı için Google ayarı', { exact: true }).click()
+  await expect(page.getByText('Masaüstü uygulaması', { exact: true })).toBeVisible()
+  await expect(page.locator('.drive-panel')).toHaveCSS('background-color', 'rgb(22, 22, 24)')
+  await page.screenshot({ path: join(directory, 'drive-settings.png') })
+  const preferences = await application.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows()[0]
+    return window.webContents.getLastWebPreferences()
+  })
+  expect(preferences.contextIsolation).toBe(true)
+  expect(preferences.sandbox).toBe(true)
+  expect(preferences.nodeIntegration).toBe(false)
+  expect(readFileSync(join(directory, 'vault.nodus'), 'utf8')).not.toContain('test-only-ssh-password')
+  await application.close()
+  application = await electron.launch({ args: [root], env: environment })
+  page = await application.firstWindow()
+  page.on('pageerror', (error) => failures.push(error.message))
+  await expect(page.getByRole('heading', { name: 'Laravel Production', exact: true })).toBeVisible()
+  await page.evaluate(() => window.nodus.lock())
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Kasanı aç.' })).toBeVisible()
+  await page.getByLabel('Kasa parolası', { exact: true }).fill('wrong-password')
+  await page.getByRole('button', { name: 'Kasanın kilidini aç', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Kasa parolası yanlış')
+  await page.getByLabel('Kasa parolası', { exact: true }).fill(password)
+  await page.getByRole('button', { name: 'Kasanın kilidini aç', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Laravel Production', exact: true })).toBeVisible()
+  expect(failures).toEqual([])
+  console.log('PASS: desktop startup, encrypted storage, host/snippet forms, remembered unlock, explicit lock, wrong password, sandbox. Screenshots: ' + directory)
+} finally {
+  await application?.close()
+}

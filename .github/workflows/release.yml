@@ -1,0 +1,78 @@
+name: Windows release
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+permissions:
+  contents: read
+concurrency:
+  group: windows-release
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Validate version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json).version
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Only stable versions can be released.' }
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") { throw 'Tag and package version must match.' }
+          "version=$version" >> $env:GITHUB_OUTPUT
+      - run: npm ci
+      - run: npm run source:check
+      - run: npm test
+      - run: npm run dist:win
+      - name: Verify update artifacts
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          foreach ($file in @("Nodus-$env:RELEASE_VERSION-Setup.exe", "Nodus-$env:RELEASE_VERSION-Setup.exe.blockmap", 'latest.yml')) {
+            if (!(Test-Path -LiteralPath (Join-Path release $file) -PathType Leaf)) { throw "Missing artifact: $file" }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-update
+          path: |
+            release/Nodus-*-Setup.exe
+            release/Nodus-*-Setup.exe.blockmap
+            release/latest.yml
+          if-no-files-found: error
+          retention-days: 14
+  draft:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-update
+          path: release
+      - name: Create draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          $tag = "v$env:RELEASE_VERSION"
+          $existing = gh release view $tag --json isDraft --jq '.isDraft' 2>$null
+          if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists. Do not replace update files; use a new version." }
+          $files = @(Get-ChildItem -LiteralPath release -File | Select-Object -ExpandProperty FullName)
+          gh release create $tag @files --draft --title "Nodus $env:RELEASE_VERSION" --target $env:GITHUB_SHA --generate-notes
+          if ($LASTEXITCODE -ne 0) { throw 'Draft release creation failed.' }

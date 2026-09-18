@@ -1,0 +1,82 @@
+.header-actions { display: flex; align-items: center; gap: 10px; }
+select { font: inherit; color: var(--text); background: var(--input); border: 1px solid var(--border); border-radius: 6px; padding: 9px 10px; min-width: 0; }
+.modal-form label > select { width: 100%; }
+.modal-footer { flex-wrap: wrap; }
+.snippet-filters { display: flex; gap: 12px; align-items: center; margin: 28px 0 18px; flex-wrap: wrap; }
+.snippet-filters .search-field { flex: 1; min-width: 180px; }
+.snippet-filters select { max-width: 220px; }
+.snippet-table-wrap { border: 1px solid var(--border); border-radius: 9px; overflow-x: auto; }
+.snippet-table { border-collapse: collapse; table-layout: fixed; width: 100%; min-width: 560px; text-align: left; }
+.snippet-table th { background: var(--surface-raised); color: var(--muted); font-size: 10px; font-weight: 500; padding: 12px 14px; }
+.snippet-table th:first-child { width: 52px; }
+.snippet-table th:nth-child(3) { width: 130px; }
+.snippet-table th:nth-child(4) { width: 70px; }
+.snippet-table th:last-child { width: 120px; }
+.snippet-table td { border-top: 1px solid var(--border); padding: 12px 14px; background: var(--surface); }
+.snippet-table tr:hover td { background: var(--surface-raised); }
+.snippet-table h3 { margin: 0 0 5px; font-size: 12px; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.snippet-table code { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.snippet-index { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.snippet-group-tag { font-size: 10px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.snippet-confirm { font-size: 10px; color: var(--muted); }
+.snippet-confirm.enabled { color: var(--success); }
+.snippet-actions { display: flex; align-items: center; gap: 5px; }
+.snippet-run { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 5px; color: var(--accent); background: var(--surface-raised); }
+.snippet-pagination { display: flex; align-items: center; gap: 12px; padding: 18px 0; font-size: 11px; color: var(--muted); flex-wrap: wrap; }
+.snippet-pagination > span:first-child { margin-right: auto; }
+.snippet-pagination label { display: flex; align-items: center; gap: 8px; }
+.snippet-pagination select { padding: 5px 8px; }
+.file-panel-container { width: var(--file-panel-width, 360px); min-width: 0; min-height: 0; flex-shrink: 0; display: flex; }
+.file-panel-container.collapsed { display: none; }
+.file-panel-container .file-panel { width: 100%; min-width: 0; border-left: none; }
+.file-resizer { width: 7px; flex-shrink: 0; cursor: col-resize; touch-action: none; background: var(--surface-low); border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+.file-resizer:hover, .file-resizer:focus-visible, .file-resizer:active { background: var(--accent); }
+.file-panel .file-tools { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.file-tools > button { display: grid; place-items: center; width: 31px; height: 30px; border: 1px solid var(--border); border-radius: 5px; color: var(--text-secondary); }
+.file-tools > button:hover:not(:disabled) { background: var(--surface-raised); color: var(--accent); }
+.file-tools > button:last-child { margin-left: auto; }
+.file-filter { display: flex; align-items: center; gap: 7px; padding: 9px 12px; color: var(--muted); }
+.file-filter input { width: 100%; min-width: 0; padding: 6px 0; background: transparent; border: 0; outline: none; font-size: 11px; color: var(--text); }
+.file-filter select { padding: 4px 6px; font-size: 10px; width: 70px; }
+.file-panel .file-list { overflow: auto; flex: 1; min-height: 0; padding: 0; }
+.file-panel .file-row, .file-columns { display: grid; grid-template-columns: 17px minmax(0, 1fr) 62px 36px 24px; align-items: center; gap: 6px; padding: 5px 10px; min-width: 260px; }
+.file-columns { font-size: 10px; color: var(--muted); border-block: 1px solid var(--border); padding-block: 8px; background: var(--surface-low); }
+.file-panel .file-row { min-height: 35px; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+.file-panel .file-row:hover { background: var(--surface-raised); }
+.file-panel .file-row.selected { background: var(--selection); }
+.file-row input, .file-columns input { width: 13px; height: 13px; margin: 0; accent-color: var(--accent); }
+.file-panel .file-name { display: flex; min-width: 0; gap: 8px; align-items: center; font-size: 11px; text-align: left; padding: 4px 0; }
+.file-name svg { flex-shrink: 0; color: var(--muted); }
+.file-name .folder-icon { color: var(--accent); }
+.file-name span { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.file-size, .file-mode { color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; text-align: right; }
+.file-panel .file-action { padding: 3px; }
+.file-empty { padding: 40px 14px; font-size: 12px; color: var(--muted); text-align: center; }
+.file-error { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 10px 12px; color: var(--danger); background: var(--danger-surface); font-size: 11px; overflow-wrap: anywhere; }
+.file-context-menu { position: fixed; z-index: 1000; width: 230px; padding: 5px; background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: 0 14px 45px #0008; max-height: calc(100vh - 16px); overflow: auto; }
+.file-context-menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 11px; text-align: left; font-size: 12px; border-radius: 4px; }
+.file-context-menu button:hover, .file-context-menu button:focus-visible { background: var(--selection); outline: none; }
+.file-context-menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px; }
+.inline-editor { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.editor-heading { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--surface-low); border-bottom: 1px solid var(--border); }
+.editor-heading > span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }
+.editor-code { display: flex; flex: 1; min-height: 0; background: var(--terminal-bg); }
+.editor-lines, .editor-code textarea { font: 12px/21px 'Cascadia Code', Consolas, monospace; padding: 12px 10px; white-space: pre; tab-size: 2; }
+.editor-lines { flex-shrink: 0; min-width: 42px; max-width: 65px; overflow: hidden; text-align: right; color: var(--muted); user-select: none; border-right: 1px solid var(--border); }
+.editor-code textarea { flex: 1; min-width: 0; width: 100%; resize: none; border: 0; border-radius: 0; outline: none; background: transparent; color: var(--text); overflow: auto; }
+.editor-status { display: flex; align-items: center; justify-content: space-between; padding: 7px 12px; font-size: 10px; color: var(--muted); border-top: 1px solid var(--border); }
+.permission-grid { display: grid; grid-template-columns: 1.3fr repeat(3, 1fr); gap: 14px; align-items: center; font-size: 12px; }
+.permission-row { display: contents; }
+.permission-grid input { width: 15px; height: 15px; justify-self: center; }
+.permission-grid strong { font-size: 11px; text-align: center; color: var(--muted); }
+.action-targets { overflow-wrap: anywhere; max-height: 100px; overflow: auto; color: var(--text-secondary); }
+.connection-prompt { background: #141416; }
+.statsbar { display: flex; align-items: center; gap: 9px; padding: 8px 12px; color: var(--muted); font-size: 10px; border-top: 1px solid var(--border); min-height: 34px; overflow-x: auto; flex-shrink: 0; }
+.stat { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.stat strong { font-weight: 500; color: var(--text-secondary); }
+.stat-sep { width: 1px; height: 13px; background: var(--border); flex-shrink: 0; }
+.meter { width: 36px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.meter > span { height: 100%; display: block; background: var(--success); }
+.spin { animation: nodus-spin 1s linear infinite; }
+@keyframes nodus-spin { to { transform: rotate(360deg); } }
+@media (max-width: 700px) { .snippet-filters select { max-width: 160px; } .snippet-table th:nth-child(3) { width: 100px; } }

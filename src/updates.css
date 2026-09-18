@@ -1,0 +1,5 @@
+.update-notice { position: fixed; z-index: 110; right: 20px; bottom: 20px; max-width: min(680px, calc(100vw - 40px)); display: flex; align-items: center; gap: 14px; padding: 16px; background: var(--surface-raised); color: var(--text); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: 0 12px 40px #0006; }
+.update-notice strong { font-size: 13px; }
+.update-notice p { font-size: 11px; margin: 6px 0 0; }
+.update-notice .primary { flex-shrink: 0; }
+@media (max-width: 850px) { .update-notice { flex-wrap: wrap; } }
