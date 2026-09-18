@@ -21,7 +21,7 @@ export type QuickHost = { hostname: string; port: number; username: string; pass
 export type DriveConflict = { key: string; label: string; options: { id: string; label: string }[] }
 export type DriveStatus = { configured: boolean; connected: boolean; busy: boolean; message: string; lastSync?: string; conflicts: DriveConflict[] }
 
-export type UpdateStatus = { currentVersion: string; phase: 'disabled' | 'idle' | 'checking' | 'downloading' | 'ready' | 'installing' | 'error'; nextVersion?: string; progress: number; message: string }
+export type UpdateStatus = { currentVersion: string; mode?: 'automatic' | 'manual'; phase: 'disabled' | 'idle' | 'checking' | 'downloading' | 'ready' | 'installing' | 'error' | 'available'; nextVersion?: string; progress: number; message: string }
 
 export interface NodusAPI {
   readClipboard(): Promise<string>
@@ -29,6 +29,7 @@ export interface NodusAPI {
   updateStatus(): Promise<UpdateStatus>
   checkUpdates(): Promise<UpdateStatus>
   installUpdate(): Promise<UpdateStatus>
+  openUpdateDownload(): Promise<UpdateStatus>
   onUpdate(listener: (state: UpdateStatus) => void): () => void
   status(): Promise<Status>
   unlock(password: string, remember: boolean, create: boolean): Promise<Vault>

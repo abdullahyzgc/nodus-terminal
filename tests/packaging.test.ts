@@ -14,6 +14,19 @@ test('CI and release workflows only invoke defined npm scripts', () => {
   }
 })
 
+test('Mac builds both DMGs with ad-hoc signing and includes them in the release', () => {
+  assert.equal(manifest.build.mac.identity, '-')
+  assert.equal(manifest.build.mac.notarize, false)
+  assert.equal(manifest.build.mac.hardenedRuntime, false)
+  assert.equal(manifest.build.mac.artifactName, 'Nodus-${version}-mac-${arch}.${ext}')
+  assert.match(manifest.scripts['dist:mac'], /--x64 --arm64 --publish never/)
+  const workflow = readFileSync(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8')
+  assert.match(workflow, /runs-on: macos-latest/)
+  assert.match(workflow, /needs: \[build, mac\]/)
+  assert.match(workflow, /merge-multiple: true/)
+  assert.match(workflow, /codesign --verify --deep --strict/)
+})
+
 test('Windows package edits executable icons without requiring code signing', () => {
   assert.equal(manifest.build.win.signAndEditExecutable, true)
   assert.equal(manifest.build.win.signExecutable, false)

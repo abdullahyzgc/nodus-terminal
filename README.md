@@ -37,7 +37,11 @@ Uygulamanın ana dili TypeScript. Arayüzü React ile, masaüstü tarafını Ele
 
 Windows x64 kurulum dosyasını [Releases](https://github.com/abdullahyzgc/nodus-terminal/releases) sayfasından indirebilirsin. Kurulu Windows sürümü güncellemeleri indirir; **Yeniden başlat ve güncelle** ile kurulum başlar.
 
-macOS için DMG derleme hedefi de var, ancak gerçek cihaz testini henüz tamamlamadım.
+Mac için aynı sayfadaki DMG paketini kullanabilirsin: Apple Silicon (M serisi) için arm64, Intel için x64. DMG içindeki Nodus’u Uygulamalar klasörüne taşı. Mac paketlerinin gerçek cihaz testini henüz tamamlamadım.
+
+Mac sürümü açılıştan kısa süre sonra ve altı saatte bir yeni sürüm arar. Uygun DMG yayımlanmışsa **Mac sürümünü indir** bildirimi gösterir; bu düğme GitHub sürüm sayfasını açar. Ayarlardan elle kontrol de yapabilirsin. Kurulum otomatik yapılmaz: çalışmalarını kaydet, Nodus’tan tamamen çık ve yeni DMG’deki uygulamayı Uygulamalar’daki kopyayla değiştir. İlk bildirim destekli Mac sürümünü de elle kurmak gerekir.
+
+Mac paketlerini Apple Developer sertifikası olmadan, ad-hoc imzayla hazırlıyorum; Apple tarafından doğrulanmış değiller. Gatekeeper ilk açılışı engelleyebilir. Yalnızca resmi depodan indirdiğin pakete güvendiğinden eminsen Sistem Ayarları → Gizlilik ve Güvenlik bölümündeki **Yine de Aç** seçeneğini kullan. Sistem güvenliğini tamamen kapatman gerekmez.
 
 ### İlk bağlantı
 
@@ -104,3 +108,5 @@ npm run dist:mac
 ```
 
 Kurulum dosyaları release/ klasörüne çıkar.
+
+Mac komutu iki paket üretir: `Nodus-<sürüm>-mac-arm64.dmg` ve `Nodus-<sürüm>-mac-x64.dmg`. Apple hesabı veya sertifika parolası gerekmez; derleme macOS üzerinde yapılır. GitHub Actions’taki **Desktop release** akışı Windows dosyalarını ve iki Mac paketini aynı taslak sürüme ekler. Kontrol ettikten sonra taslağı **Publish release** ile yayımla; taslak ve ön sürümler uygulamaya bildirilmez. Mac’in manuel indirme akışı `latest-mac.yml` veya ZIP gerektirmez; Windows güncelleme dosyaları değişmez.

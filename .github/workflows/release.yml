@@ -1,4 +1,4 @@
-name: Windows release
+name: Desktop release
 on:
   workflow_dispatch:
   push:
@@ -52,8 +52,39 @@ jobs:
             release/latest.yml
           if-no-files-found: error
           retention-days: 14
-  draft:
+  mac:
     needs: build
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run source:check
+      - run: npm test
+      - run: npm run dist:mac
+      - name: Verify Mac packages and ad-hoc signatures
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          test -s "release/Nodus-${RELEASE_VERSION}-mac-x64.dmg"
+          test -s "release/Nodus-${RELEASE_VERSION}-mac-arm64.dmg"
+          codesign --verify --deep --strict "release/mac/Nodus.app"
+          codesign --verify --deep --strict "release/mac-arm64/Nodus.app"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-update
+          path: release/Nodus-*-mac-*.dmg
+          if-no-files-found: error
+          retention-days: 14
+  draft:
+    needs: [build, mac]
     runs-on: windows-latest
     timeout-minutes: 10
     permissions:
@@ -61,7 +92,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: windows-update
+          pattern: '*-update'
+          merge-multiple: true
           path: release
       - name: Create draft release
         shell: pwsh

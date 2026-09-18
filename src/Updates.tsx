@@ -31,7 +31,8 @@ function useUpdates() {
   async function action(install: boolean) {
     setError("");
     try {
-      if (install) await window.nodus!.installUpdate();
+      if (install && state?.mode === "manual") await window.nodus!.openUpdateDownload();
+      else if (install) await window.nodus!.installUpdate();
       else await window.nodus!.checkUpdates();
     } catch (failure) {
       setError(errorText(failure));
@@ -58,6 +59,7 @@ export function UpdateSettings() {
         </div>
       </div>
       <p role="status">{state?.message}</p>
+      {state?.mode === "manual" && <p className="field-hint">Mac güncellemeleri elle kurulur. İndir düğmesi GitHub sürüm sayfasını açar. Apple Silicon için arm64, Intel için x64 DMG seç. Çalışmalarını kaydedip Nodus’tan çıktıktan sonra Uygulamalar klasöründeki kopyayı değiştir.</p>}
       {state?.nextVersion && (
         <p className="field-hint">Yeni sürüm: {state.nextVersion}</p>
       )}
@@ -71,12 +73,15 @@ export function UpdateSettings() {
       <div className="settings-actions">
         <button
           className="secondary"
-          disabled={!state || !["idle", "error"].includes(state.phase)}
+          disabled={!state || !["idle", "error", "available"].includes(state.phase)}
           onClick={() => void action(false)}
         >
           <RefreshCw size={15} />
           Güncellemeleri kontrol et
         </button>
+        {state?.mode === "manual" && state.phase === "available" && (
+          <button className="primary" onClick={() => void action(true)}>Mac sürümünü indir</button>
+        )}
         {state?.phase === "ready" && (
           <button className="primary" onClick={() => void action(true)}>
             Yeniden başlat ve güncelle
@@ -95,16 +100,16 @@ export function UpdateSettings() {
 export function UpdateNotice() {
   const { state, error, action } = useUpdates();
   const [dismissed, setDismissed] = useState("");
-  if (!state || state.phase !== "ready" || dismissed === state.nextVersion)
+  if (!state || !["ready", "available"].includes(state.phase) || dismissed === state.nextVersion)
     return null;
   return (
     <aside className="update-notice" aria-label="Yeni sürüm bildirimi">
       <div>
         <strong>Nodus {state.nextVersion} hazır</strong>
-        <p>{error || "İndirme tamamlandı. Uygun olduğunda yeniden başlat."}</p>
+        <p>{error || (state.mode === "manual" ? state.message : "İndirme tamamlandı. Uygun olduğunda yeniden başlat.")}</p>
       </div>
       <button className="primary" onClick={() => void action(true)}>
-        Yeniden başlat ve güncelle
+        {state.mode === "manual" ? "Mac sürümünü indir" : "Yeniden başlat ve güncelle"}
       </button>
       <button
         className="icon-button"

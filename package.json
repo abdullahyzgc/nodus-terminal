@@ -1,6 +1,6 @@
 {
   "name": "nodus-ssh",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "Private SSH and SFTP workspace",
   "author": "Nodus",
@@ -12,7 +12,7 @@
     "start": "electron .",
     "test": "tsx --test tests/*.test.ts",
     "dist:win": "npm run build && electron-builder --win nsis --x64 --publish never",
-    "dist:mac": "npm run build && electron-builder --mac dmg",
+    "dist:mac": "npm run build && electron-builder --mac dmg --x64 --arm64 --publish never",
     "check": "tsc --noEmit",
     "source:check": "node scripts/public-source.mjs"
   },
@@ -68,6 +68,10 @@
     },
     "mac": {
       "target": "dmg",
+      "artifactName": "Nodus-${version}-mac-${arch}.${ext}",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "notarize": false,
       "category": "public.app-category.developer-tools"
     },
     "nsis": {

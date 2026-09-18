@@ -11,6 +11,7 @@ import { DriveService } from './drive'
 import { AutoLock, readAutoLockMinutes, saveAutoLockMinutes } from './auto-lock'
 import { autoUpdater } from 'electron-updater'
 import { UpdateService } from './updates'
+import { MacUpdateService } from './mac-updates'
 import { FileHistory } from './file-history'
 import { actionCommand, listCommand, parseManaged } from './operations'
 import { renderWorkflow } from '../src/workflows'
@@ -28,7 +29,7 @@ function assetPath(name: string): string { if (app.isPackaged) return join(proce
 let store: VaultStore
 let ssh: SSHManager
 let drive: DriveService
-let updates: UpdateService
+let updates: UpdateService | MacUpdateService
 let syncing = false
 let syncController: AbortController | undefined
 let autoLock: AutoLock
@@ -109,6 +110,7 @@ function registerHandlers(): void {
   handle('update:status', () => updates.status())
   handle('update:check', () => updates.check())
   handle('update:install', () => updates.install())
+  handle('update:download-page', () => updates instanceof MacUpdateService ? updates.openDownload() : updates.status())
   handle('vault:status', status)
   handle('vault:read', () => store.read())
   handle('vault:auto-lock', () => { store.read(); return autoLockMinutes })
@@ -420,7 +422,9 @@ else {
     autoLock.configure(autoLockMinutes)
     if (store.unlocked) autoLock.start()
     powerMonitor.on('resume', () => autoLock.check())
-    updates = new UpdateService(autoUpdater, app.getVersion(), app.isPackaged && process.platform === 'win32', (state) => {
+    updates = app.isPackaged && process.platform === 'darwin' ? new MacUpdateService(app.getVersion(), process.arch === 'arm64' || app.runningUnderARM64Translation ? 'arm64' : 'x64', (state) => {
+      if (window && !window.isDestroyed()) window.webContents.send('update:status', state)
+    }, (url) => shell.openExternal(url)) : new UpdateService(autoUpdater, app.getVersion(), app.isPackaged && process.platform === 'win32', (state) => {
       if (window && !window.isDestroyed()) window.webContents.send('update:status', state)
     }, () => confirm('Güncelleme kurulsun mu?', 'Uygulama yeniden başlatılacak. Açık SSH oturumları ve aktarımlar kapanır; kaydedilmemiş editör değişiklikleri kaybolabilir. Önce çalışmalarını kaydet. Kasa dosyan ve cihaz ayarların korunur; varsa şifreli kasa yedeği alınır.', 'Yeniden başlat ve güncelle'), () => {
       if (store.exists) {

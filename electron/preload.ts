@@ -7,6 +7,7 @@ const api: NodusAPI = {
   updateStatus: () => ipcRenderer.invoke('update:status'),
   checkUpdates: () => ipcRenderer.invoke('update:check'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
+  openUpdateDownload: () => ipcRenderer.invoke('update:download-page'),
   onUpdate: (listener) => {
     const handler = (_event: unknown, state: UpdateStatus) => listener(state)
     ipcRenderer.on('update:status', handler)

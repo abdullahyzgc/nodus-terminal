@@ -19,7 +19,7 @@ export class UpdateService {
   private interval?: ReturnType<typeof setInterval>
 
   constructor(private readonly engine: UpdateEngine, version: string, enabled: boolean, private readonly changed: (state: UpdateStatus) => void, private readonly confirm: () => Promise<boolean>, private readonly prepare: () => void) {
-    this.state = { currentVersion: version, phase: enabled ? 'idle' : 'disabled', progress: 0, message: enabled ? 'Yeni sürümler otomatik kontrol edilir.' : 'Otomatik güncelleme yalnızca kurulu Windows sürümünde kullanılabilir.' }
+    this.state = { currentVersion: version, phase: enabled ? 'idle' : 'disabled', progress: 0, message: enabled ? 'Yeni sürümler otomatik kontrol edilir.' : 'Sürüm kontrolü kurulu Windows ve macOS uygulamalarında kullanılabilir.' }
     engine.autoDownload = false
     engine.autoInstallOnAppQuit = false
     engine.allowPrerelease = false
