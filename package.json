@@ -13,7 +13,8 @@
     "test": "tsx --test tests/*.test.ts",
     "dist:win": "npm run build && electron-builder --win nsis --x64 --publish never",
     "dist:mac": "npm run build && electron-builder --mac dmg",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "source:check": "node scripts/public-source.mjs"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",

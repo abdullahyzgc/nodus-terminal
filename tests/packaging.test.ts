@@ -4,6 +4,16 @@ import { readFileSync } from 'node:fs'
 
 const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 
+test('CI and release workflows only invoke defined npm scripts', () => {
+  assert.equal(manifest.scripts['source:check'], 'node scripts/public-source.mjs')
+  for (const name of ['ci.yml', 'release.yml']) {
+    const workflow = readFileSync(new URL('../.github/workflows/' + name, import.meta.url), 'utf8')
+    for (const match of workflow.matchAll(/\bnpm run ([\w:-]+)/g)) {
+      assert.ok(Object.hasOwn(manifest.scripts, match[1]), name + ' invokes missing script: ' + match[1])
+    }
+  }
+})
+
 test('Windows package edits executable icons without requiring code signing', () => {
   assert.equal(manifest.build.win.signAndEditExecutable, true)
   assert.equal(manifest.build.win.signExecutable, false)
