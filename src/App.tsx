@@ -73,9 +73,13 @@ export default function App() {
     snippet: Snippet;
   } | null>(null);
   const [active, setActive] = useState("");
-  const connecting = connections
-    .filter((connection) => connection.phase === "connecting")
-    .map((connection) => connection.hostId);
+  const [rdpBusy, setRdpBusy] = useState<string[]>([]);
+  const connecting = [
+    ...connections
+      .filter((connection) => connection.phase === "connecting")
+      .map((connection) => connection.hostId),
+    ...rdpBusy,
+  ];
   const [toast, setToast] = useState("");
   const [question, setQuestion] = useState<Question | null>(null);
   const questionRef = useRef(question);
@@ -169,6 +173,22 @@ export default function App() {
     };
   }, []);
   async function connect(host: Host, password?: string) {
+    if (host.protocol === "rdp") {
+      const requestId = "rdp-" + host.id;
+      if (pending.current.has(requestId)) return;
+      const currentGeneration = generation.current;
+      pending.current.add(requestId);
+      setRdpBusy((current) => current.includes(host.id) ? current : [...current, host.id]);
+      setPalette(false);
+      setNavigation(false);
+      try {
+        const opened = await window.nodus!.openRdp(host.id);
+        if (opened && currentGeneration === generation.current) notify("Windows Uzak Masaüstü başlatıldı. Bağlantı durumunu açılan pencereden takip et.");
+      } catch (error) {
+        if (currentGeneration === generation.current) notify(errorText(error));
+      } finally { pending.current.delete(requestId); setRdpBusy((current) => current.filter((id) => id !== host.id)); }
+      return;
+    }
     const waiting =
       host.authType === "password" && !(password ?? host.password);
     const connection: OpenConnection = {
@@ -250,7 +270,6 @@ export default function App() {
     port: number;
     username: string;
     password: string;
-    savePassword: boolean;
   }) {
     const host: Host = {
       id: crypto.randomUUID(),
@@ -261,12 +280,13 @@ export default function App() {
       group: "Diğer",
       color: "#8aacf2",
       authType: "password",
-      password: input.savePassword ? input.password : "",
+      password: input.password,
       privateKey: "",
       passphrase: "",
       favorite: false,
       initialPath: "",
       followDirectory: true,
+      persistentSession: true,
     };
     setVault(await window.nodus!.saveHost(host));
     setQuickOpen(false);
@@ -417,6 +437,26 @@ export default function App() {
     setNavigation(false);
     setQuery("");
   };
+  const closeNavigation = () => {
+    setNavigation(false);
+    const selector = window.matchMedia("(max-width: 950px)").matches
+      ? ".compact-nav-toggle"
+      : ".sidebar-edge";
+    document.querySelector<HTMLButtonElement>(selector)?.focus();
+  };
+  useEffect(() => {
+    if (!navigation) return;
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || document.querySelector("dialog[open]")) return;
+      const sidebar = document.querySelector("#workspace-sidebar");
+      if (!sidebar || getComputedStyle(sidebar).visibility !== "visible") return;
+      event.preventDefault();
+      event.stopPropagation();
+      closeNavigation();
+    };
+    document.addEventListener("keydown", dismiss, true);
+    return () => document.removeEventListener("keydown", dismiss, true);
+  }, [navigation]);
   async function removeHost(host: Host) {
     if (connections.some((connection) => connection.hostId === host.id)) {
       notify("Önce bu sunucunun açık sekmelerini kapat.");
@@ -510,6 +550,29 @@ export default function App() {
         <VaultGate status={status} ready={acceptVault} imported={setStatus} />
       ) : (
         <div className="app-layout">
+          <nav className="compact-navigation" aria-label="Hızlı gezinme">
+            <button
+              className="rail-button compact-nav-toggle"
+              aria-label="Menüyü aç"
+              title="Menüyü aç"
+              aria-controls="workspace-sidebar"
+              aria-expanded={navigation}
+              onClick={() => {
+                if (navigation) closeNavigation();
+                else {
+                  setNavigation(true);
+                  requestAnimationFrame(() => document.querySelector<HTMLButtonElement>("#workspace-sidebar .sidebar-close")?.focus());
+                }
+              }}
+            ><Menu size={20} /></button>
+            <button className={"rail-button " + (page === "hosts" && group !== "favorites" ? "active" : "")} aria-label="Sunucular" title="Sunucular" aria-current={page === "hosts" && group !== "favorites" ? "page" : undefined} onClick={() => { setGroup("all"); go("hosts"); }}><Server size={20} /></button>
+            <button className={"rail-button " + (page === "hosts" && group === "favorites" ? "active" : "")} aria-label="Favoriler" title="Favoriler" aria-current={page === "hosts" && group === "favorites" ? "page" : undefined} onClick={() => { setGroup("favorites"); go("hosts"); }}><Star size={20} /></button>
+            <button className={"rail-button " + (page === "snippets" ? "active" : "")} aria-label="Kestirmeler" title="Kestirmeler" aria-current={page === "snippets" ? "page" : undefined} onClick={() => go("snippets")}><Zap size={20} /></button>
+            <button className="rail-button" aria-label="Hızlı erişim" title="Hızlı erişim (Ctrl+K)" onClick={() => { setNavigation(false); setPaletteQuery(""); setPalette(true); }}><Search size={20} /></button>
+            <div className="spacer" />
+            <button className={"rail-button " + (page === "settings" ? "active" : "")} aria-label="Ayarlar" title="Ayarlar" aria-current={page === "settings" ? "page" : undefined} onClick={() => go("settings")}><Settings2 size={20} /></button>
+            <button className="rail-button" aria-label="Kasayı kilitle" title="Kasayı kilitle" onClick={() => void lock()}><LockKeyhole size={20} /></button>
+          </nav>
           {focusMode && (
             <button
               className="sidebar-edge"
@@ -530,6 +593,7 @@ export default function App() {
             onPointerLeave={(event) => {
               if (
                 focusMode &&
+                !window.matchMedia("(max-width: 950px)").matches &&
                 event.pointerType === "mouse" &&
                 !event.currentTarget.contains(document.activeElement)
               )
@@ -537,10 +601,8 @@ export default function App() {
             }}
             onKeyDown={(event) => {
               if (event.key === "Escape") {
-                setNavigation(false);
-                document
-                  .querySelector<HTMLButtonElement>(".mobile-menu")
-                  ?.focus();
+                event.preventDefault();
+                closeNavigation();
               }
             }}
             className={"sidebar " + (navigation ? "mobile-open" : "")}
@@ -556,7 +618,7 @@ export default function App() {
               <button
                 className="icon-button sidebar-close"
                 aria-label="Menüyü kapat"
-                onClick={() => setNavigation(false)}
+                onClick={closeNavigation}
               >
                 <X size={16} />
               </button>
@@ -672,11 +734,11 @@ export default function App() {
               </button>
             </div>
           </aside>
-          {navigation && !focusMode && (
+          {navigation && (
             <button
               className="nav-scrim"
-              aria-label="Menüyü kapat"
-              onClick={() => setNavigation(false)}
+              aria-label="Menü dışına tıklayarak kapat"
+              onClick={closeNavigation}
             />
           )}
           <main
@@ -684,6 +746,7 @@ export default function App() {
             onPointerEnter={(event) => {
               if (
                 focusMode &&
+                !window.matchMedia("(max-width: 950px)").matches &&
                 event.pointerType === "mouse" &&
                 !document
                   .querySelector("#workspace-sidebar")

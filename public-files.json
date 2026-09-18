@@ -24,6 +24,7 @@
     "electron/main.ts",
     "electron/preload.ts",
     "electron/ssh.ts",
+    "electron/rdp.ts",
     "electron/sync.ts",
     "electron/vault.ts",
     "electron/updates.ts",
@@ -37,6 +38,8 @@
     "scripts/public-source.mjs",
     "scripts/smoke.mjs",
     "scripts/updates-smoke.mjs",
+    "scripts/navigation-smoke.mjs",
+    "scripts/host-form-smoke.mjs",
     "src/App.tsx",
     "src/diff.ts",
     "src/FileReview.tsx",
@@ -83,6 +86,8 @@
     "tests/public-source.test.ts",
     "tests/sftp.test.ts",
     "tests/ssh.test.ts",
+    "tests/rdp.test.ts",
+    "scripts/rdp-smoke.mjs",
     "tests/stats.test.ts"
   ]
 }

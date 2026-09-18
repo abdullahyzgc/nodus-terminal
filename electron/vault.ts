@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync, timingSafeEq
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import type { Host, Snippet, Vault } from '../src/shared'
+import { validateRdpHost } from './rdp'
 
 type Envelope = { version: 1; salt: string; iv: string; tag: string; data: string }
 export const emptyVault = (): Vault => ({
@@ -31,6 +32,7 @@ export function encryptVault(vault: Vault, key: Buffer, salt: Buffer): string {
   return JSON.stringify({ version: 1, salt: salt.toString('base64'), iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64'), data: data.toString('base64') })
 }
 export function validateHost(host: Host): void {
+  if (host && host.protocol !== undefined && !['ssh', 'rdp'].includes(host.protocol)) throw new Error('Geçersiz bağlantı türü.')
   if (host && ((host.production !== undefined && typeof host.production !== 'boolean') || (host.persistentSession !== undefined && typeof host.persistentSession !== 'boolean'))) throw new Error('Geçersiz sunucu koruma ayarı.')
   if (!host || typeof host.id !== 'string' || !/^[\w-]{1,80}$/.test(host.id)) throw new Error('Geçersiz sunucu kimliği.')
   for (const field of ['name', 'hostname', 'username', 'group', 'color', 'password', 'privateKey', 'passphrase', 'initialPath'] as const) {
@@ -39,6 +41,10 @@ export function validateHost(host: Host): void {
   if (!host.name.trim() || !host.hostname.trim() || !host.username.trim() || /[\x00-\x20]/.test(host.hostname) || /[\x00\r\n]/.test(host.username)) throw new Error('Sunucu adı, adresi ve kullanıcı gerekli.')
   if (!Number.isInteger(host.port) || host.port < 1 || host.port > 65535 || !['password', 'key'].includes(host.authType)) throw new Error('Port veya giriş yöntemi geçersiz.')
   if (typeof host.favorite !== 'boolean' || typeof host.followDirectory !== 'boolean' || /[\x00-\x1f\x7f]/.test(host.initialPath)) throw new Error('Geçersiz sunucu seçeneği.')
+  if (host.protocol === 'rdp') {
+    validateRdpHost(host)
+    if (host.authType !== 'password' || host.password || host.privateKey || host.passphrase || host.initialPath || host.followDirectory || host.persistentSession) throw new Error('RDP kaydı SSH seçenekleri veya parola içeremez. Parola Uzak Masaüstü penceresinde girilir.')
+  }
 }
 export function validateSnippet(snippet: Snippet): void {
   if (snippet && snippet.workflow !== undefined && typeof snippet.workflow !== 'boolean') throw new Error('Geçersiz akış ayarı.')

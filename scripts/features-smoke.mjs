@@ -28,6 +28,10 @@ const server = new ssh2.Server({ hostKeys: [key] }, (client) => {
     const session = accept()
     session.on('pty', (acceptPty) => acceptPty?.())
     session.on('window-change', (acceptResize) => acceptResize?.())
+    session.on('exec', (acceptExec, rejectExec, info) => {
+      if (info.command !== 'command -v tmux') { rejectExec(); return }
+      const stream = acceptExec(); stream.exit(127); stream.end()
+    })
     session.on('shell', (acceptShell) => {
       const stream = acceptShell()
       stream.write('Fixture connected\r\n')
@@ -193,7 +197,6 @@ try {
     await page.getByLabel('Port', { exact: true }).fill(String(port))
     if (password) {
       await page.getByLabel('Sunucu parolası', { exact: true }).fill(password)
-      await page.getByLabel('Parolayı kasaya kaydet', { exact: true }).check()
     }
     await page.getByRole('button', { name: 'Kaydet ve bağlan', exact: true }).click()
     await expect(passwordTerminal).toContainText(password ? 'Parola kabul edilmedi' : 'Parola:', { timeout: 15000 })

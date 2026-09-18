@@ -244,7 +244,11 @@ export function HostForm({
 }) {
   const [host, setHost] = useState<Host>(() =>
     initial
-      ? { ...initial }
+      ? {
+          ...initial,
+          followDirectory: initial.protocol !== "rdp",
+          persistentSession: initial.protocol === "rdp" ? false : initial.persistentSession ?? true,
+        }
       : {
           id: crypto.randomUUID(),
           name: "",
@@ -260,13 +264,22 @@ export function HostForm({
           favorite: false,
           initialPath: "",
           followDirectory: true,
+          persistentSession: true,
         },
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [savePassword, setSavePassword] = useState(Boolean(initial?.password));
   function field<Key extends keyof Host>(key: Key, value: Host[Key]) {
     setHost((current) => ({ ...current, [key]: value }));
+  }
+  const isRdp = host.protocol === "rdp";
+  function changeProtocol(protocol: "ssh" | "rdp") {
+    setHost((current) => ({
+      ...current,
+      protocol,
+      port: current.port === 22 || current.port === 3389 ? (protocol === "rdp" ? 3389 : 22) : current.port,
+      username: current.username === "root" || current.username === "Administrator" ? (protocol === "rdp" ? "Administrator" : "root") : current.username,
+    }));
   }
   async function submit(open = false) {
     setBusy(true);
@@ -275,15 +288,21 @@ export function HostForm({
       await save(
         {
           ...host,
-          password:
-            host.authType === "password" && savePassword ? host.password : "",
+          authType: isRdp ? "password" : host.authType,
+          password: !isRdp && host.authType === "password" ? host.password : "",
+          privateKey: isRdp ? "" : host.privateKey,
+          passphrase: isRdp ? "" : host.passphrase,
+          initialPath: isRdp ? "" : host.initialPath,
+          persistentSession: isRdp ? false : host.persistentSession,
+          followDirectory: !isRdp,
+          rdp: isRdp ? host.rdp ?? { fullscreen: false, clipboard: false } : undefined,
           name: host.name.trim(),
           hostname: host.hostname.trim(),
           username: host.username.trim(),
           group: host.group.trim() || "Kişisel",
         },
         open,
-        host.authType === "password" ? host.password || undefined : undefined,
+        !isRdp && host.authType === "password" ? host.password || undefined : undefined,
       );
       close();
     } catch (failure) {
@@ -311,12 +330,20 @@ export function HostForm({
         className="modal-form"
       >
         <p className="modal-description">
-          Bir kez ekle. Her bağlantıda kaldığın yerden devam et.
+          SSH terminali veya Windows Uzak Masaüstü bağlantısını kaydet.
         </p>
         <fieldset disabled={busy}>
-          <label>
+          <label htmlFor="host-protocol">
+            Bağlantı türü
+            <select id="host-protocol" aria-label="Bağlantı türü" value={host.protocol ?? "ssh"} onChange={(event) => changeProtocol(event.target.value as "ssh" | "rdp")}>
+              <option value="ssh">SSH · Terminal ve dosyalar</option>
+              <option value="rdp">RDP · Windows Uzak Masaüstü</option>
+            </select>
+          </label>
+          <label htmlFor="host-name">
             Sunucu adı
             <input
+              id="host-name"
               autoFocus
               required
               maxLength={120}
@@ -326,18 +353,20 @@ export function HostForm({
             />
           </label>
           <div className="form-grid address-grid">
-            <label>
+            <label htmlFor="host-address">
               Adres
               <input
+                id="host-address"
                 required
                 value={host.hostname}
                 onChange={(event) => field("hostname", event.target.value)}
                 placeholder="IP adresi veya sunucu.example.com"
               />
             </label>
-            <label>
+            <label htmlFor="host-port">
               Port
               <input
+                id="host-port"
                 required
                 type="number"
                 min="1"
@@ -348,18 +377,21 @@ export function HostForm({
             </label>
           </div>
           <div className="form-grid">
-            <label>
+            <label htmlFor="host-username">
               Kullanıcı
               <input
+                id="host-username"
                 required
                 value={host.username}
                 onChange={(event) => field("username", event.target.value)}
+                placeholder={isRdp ? "Administrator veya DOMAIN\\kullanici" : "root"}
                 autoComplete="off"
               />
             </label>
-            <label>
+            <label htmlFor="host-group">
               Grup
               <input
+                id="host-group"
                 list="host-groups"
                 value={host.group}
                 onChange={(event) => field("group", event.target.value)}
@@ -371,6 +403,12 @@ export function HostForm({
               </datalist>
             </label>
           </div>
+          {isRdp ? <>
+            <p className="field-hint">Windows Uzak Masaüstü ayrı pencerede açılır. Parolayı orada girersin; Nodus RDP parolası saklamaz. Nodus’u kilitlemek veya kapatmak RDP penceresini kapatmaz.</p>
+            <label className="check" htmlFor="host-rdp-fullscreen"><input id="host-rdp-fullscreen" type="checkbox" checked={host.rdp?.fullscreen ?? false} onChange={(event) => field("rdp", { fullscreen: event.target.checked, clipboard: host.rdp?.clipboard ?? false })} />Tam ekran aç</label>
+            <label className="check" htmlFor="host-rdp-clipboard"><input id="host-rdp-clipboard" type="checkbox" checked={host.rdp?.clipboard ?? false} onChange={(event) => field("rdp", { fullscreen: host.rdp?.fullscreen ?? false, clipboard: event.target.checked })} />Uzak bilgisayarla panoyu paylaş</label>
+            <p className="field-hint">Pano paylaşımı açıksa kopyaladığın bilgiler uzak bilgisayara aktarılabilir. Disk ve yazıcı paylaşımı kapalıdır. Bu bağlantıyı açmak için Nodus’un Windows sürümü gerekir.</p>
+          </> : <>
           <div className="segmented">
             <button
               type="button"
@@ -391,9 +429,10 @@ export function HostForm({
           </div>
           {host.authType === "password" ? (
             <>
-              <label>
+              <label htmlFor="host-password">
                 Sunucu parolası
                 <input
+                  id="host-password"
                   type="password"
                   autoComplete="new-password"
                   value={host.password}
@@ -401,20 +440,16 @@ export function HostForm({
                   placeholder="Boş bırakılırsa terminalde sorulur"
                 />
               </label>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={savePassword}
-                  onChange={(event) => setSavePassword(event.target.checked)}
-                />
-                Parolayı kasaya kaydet
-              </label>
+              <p className="field-hint">
+                Girdiğin parola şifreli kasana otomatik kaydedilir.
+              </p>
             </>
           ) : (
             <>
-              <label>
+              <label htmlFor="host-private-key">
                 Özel SSH anahtarı
                 <textarea
+                  id="host-private-key"
                   rows={4}
                   required
                   spellCheck={false}
@@ -438,9 +473,10 @@ export function HostForm({
                 <Upload size={14} />
                 Anahtar dosyası seç
               </button>
-              <label>
+              <label htmlFor="host-passphrase">
                 Anahtar parolası (varsa)
                 <input
+                  id="host-passphrase"
                   type="password"
                   autoComplete="new-password"
                   value={host.passphrase}
@@ -449,16 +485,23 @@ export function HostForm({
               </label>
             </>
           )}
-          <label className="check">
+          </>}
+          <label className="check" htmlFor="host-production">
             <input
+              id="host-production"
               type="checkbox"
               checked={!!host.production}
               onChange={(event) => field("production", event.target.checked)}
             />
-            Üretim sunucusu: belirgin uyarı ve ek işlem onayı
+            {isRdp ? "Canlı sunucu: uzak masaüstünü açarken üretim uyarısı göster" : "Canlı sunucu: terminali açmadan ve dosyaları değiştirmeden önce onay iste"}
           </label>
-          <label className="check">
+          <p className="field-hint">
+            {isRdp ? "Bağlantıyı açmadan önce hedef sunucu üretim etiketiyle gösterilir. Uzak Masaüstü içindeki işlemler Nodus tarafından denetlenmez." : "Gerçek kullanıcıların kullandığı sunucular için ek koruma. Sunucu belirgin şekilde işaretlenir; terminal girdisi ve dosya işlemleri onay ister. Terminal açıldıktan sonra komutlar tek tek denetlenmez."}
+          </p>
+          {!isRdp && <>
+          <label className="check visible" htmlFor="host-persistent">
             <input
+              id="host-persistent"
               type="checkbox"
               checked={!!host.persistentSession}
               onChange={(event) =>
@@ -468,34 +511,14 @@ export function HostForm({
             Kesintiye dayanıklı oturum (tmux)
           </label>
           <p className="field-hint">
-            Sunucuda tmux kurulu olmalı. Aynı sunucu kaydında bir kalıcı oturum
-            açılır. Kasa kilitlense veya uygulama kapansa da uzaktaki işler
-            sürebilir. tmux içinde otomatik dizin takibi kapalıdır.
+            Sunucuda tmux varsa kalıcı oturum kullanılır; yoksa normal SSH
+            oturumu açılır. Kasa kilitlense veya uygulama kapansa da tmux
+            içindeki işler sürebilir.
           </p>
-          <label>
-            Başlangıç dizini (isteğe bağlı)
+          </>}
+          <label className="check" htmlFor="host-favorite">
             <input
-              value={host.initialPath}
-              onChange={(event) => field("initialPath", event.target.value)}
-              placeholder="/var/www"
-            />
-          </label>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={host.followDirectory}
-              onChange={(event) =>
-                field("followDirectory", event.target.checked)
-              }
-            />
-            Dosya paneli terminal dizinini izlesin
-          </label>
-          <p className="field-hint">
-            Bash/Zsh oturumuna geçici dizin bildirme işlevi eklenir. Sunucuda
-            dosya değiştirilmez.
-          </p>
-          <label className="check">
-            <input
+              id="host-favorite"
               type="checkbox"
               checked={host.favorite}
               onChange={(event) => field("favorite", event.target.checked)}
@@ -684,7 +707,6 @@ export function QuickConnect({
     port: number;
     username: string;
     password: string;
-    savePassword: boolean;
   }) => Promise<void>;
   close: () => void;
 }) {
@@ -692,7 +714,6 @@ export function QuickConnect({
   const [port, setPort] = useState(22);
   const [username, setUsername] = useState("root");
   const [password, setPassword] = useState("");
-  const [savePassword, setSavePassword] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return (
@@ -717,7 +738,6 @@ export function QuickConnect({
             port: Number(port) || 22,
             username: username.trim(),
             password,
-            savePassword,
           })
             .then(close)
             .catch((failure) => setError(errorText(failure)))
@@ -767,14 +787,7 @@ export function QuickConnect({
               placeholder="Boş bırakılırsa terminalde sorulur"
             />
           </label>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={savePassword}
-              onChange={(event) => setSavePassword(event.target.checked)}
-            />
-            Parolayı kasaya kaydet
-          </label>
+          <p className="field-hint">Girdiğin parola şifreli kasana otomatik kaydedilir.</p>
         </fieldset>
         {error && (
           <p role="alert" className="inline-error">

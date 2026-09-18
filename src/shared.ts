@@ -1,4 +1,5 @@
 export type Host = {
+  protocol?: 'ssh' | 'rdp'; rdp?: { fullscreen: boolean; clipboard: boolean }
   id: string; name: string; hostname: string; port: number; username: string
   group: string; color: string; authType: 'password' | 'key'; password: string
   privateKey: string; passphrase: string; favorite: boolean; initialPath: string
@@ -13,9 +14,9 @@ export type FileRevision = { id: string; created: string; text: string }
 export type SyncSettings = { url: string; username: string; password: string; etag?: string; lastSync?: string }
 export type Vault = { version: 1; hosts: Host[]; snippets: Snippet[]; knownHosts: Record<string, string>; sync: SyncSettings }
 export type Entry = { name: string; kind: 'directory' | 'file' | 'link'; size: number; modified: number; mode: number }
-export type SessionEvent = { id: string; type: 'data' | 'cwd' | 'closed' | 'error' | 'ready' | 'authorized'; data: string }
+export type SessionEvent = { id: string; type: 'data' | 'cwd' | 'closed' | 'error' | 'ready' | 'authorized'; data: string; persistentSession?: boolean }
 export type Status = { exists: boolean; unlocked: boolean; remembered: boolean }
-export type Connection = { id: string; hostId: string; name: string }
+export type Connection = { id: string; hostId: string; name: string; persistentSession?: boolean }
 export type ServerStats = { load1: number; cpuTotal: number; cpuIdle: number; memUsed: number; memTotal: number; diskUsed: number; diskTotal: number; netRx: number; netTx: number }
 export type QuickHost = { hostname: string; port: number; username: string; password: string }
 export type DriveConflict = { key: string; label: string; options: { id: string; label: string }[] }
@@ -43,6 +44,7 @@ export interface NodusAPI {
   setAutoLockMinutes(minutes: number): Promise<number>
   onLocked(listener: (status: Status) => void): () => void
   connect(hostId: string, password?: string): Promise<Connection>
+  openRdp(hostId: string): Promise<boolean>
   reconnect(id: string, password?: string): Promise<Connection>
   authorizeTerminal(id: string): Promise<boolean>
   managedList(id: string, kind: 'docker' | 'service'): Promise<ManagedItem[]>

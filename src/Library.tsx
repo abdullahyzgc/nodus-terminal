@@ -3,6 +3,7 @@ import {
   Folder,
   KeyRound,
   LockKeyhole,
+  Monitor,
   Pencil,
   Play,
   Plus,
@@ -144,7 +145,7 @@ export function Hosts({
             <article className="host-card" key={host.id}>
               <div className="host-card-top">
                 <div className="server-glyph">
-                  <Server size={22} />
+                  {host.protocol === "rdp" ? <Monitor size={22} /> : <Server size={22} />}
                 </div>
                 <span className="host-group">
                   <Folder size={12} />
@@ -173,12 +174,12 @@ export function Hosts({
               </p>
               <div className="host-details">
                 <span>
-                  {host.authType === "key" ? (
+                  {host.protocol === "rdp" ? <Monitor size={13} /> : host.authType === "key" ? (
                     <KeyRound size={13} />
                   ) : (
                     <LockKeyhole size={13} />
                   )}
-                  {host.authType === "key" ? "SSH anahtarı" : "Parola"}
+                  {host.protocol === "rdp" ? "RDP" : host.authType === "key" ? "SSH anahtarı" : "SSH · Parola"}
                 </span>
                 <span>Port {host.port}</span>
               </div>
@@ -188,7 +189,7 @@ export function Hosts({
                   disabled={connecting.includes(host.id)}
                   onClick={() => connect(host)}
                 >
-                  {connecting.includes(host.id) ? "Bağlanıyor…" : "Bağlan"}
+                  {host.protocol === "rdp" ? "Uzak Masaüstü aç" : connecting.includes(host.id) ? "Bağlanıyor…" : "Bağlan"}
                   <ArrowRight size={16} />
                 </button>
                 <button

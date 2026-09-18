@@ -12,6 +12,7 @@ import { AutoLock, readAutoLockMinutes, saveAutoLockMinutes } from './auto-lock'
 import { autoUpdater } from 'electron-updater'
 import { UpdateService } from './updates'
 import { MacUpdateService } from './mac-updates'
+import { RdpLauncher } from './rdp'
 import { FileHistory } from './file-history'
 import { actionCommand, listCommand, parseManaged } from './operations'
 import { renderWorkflow } from '../src/workflows'
@@ -36,6 +37,7 @@ let autoLock: AutoLock
 let autoLockMinutes: number
 const fileWrites = new Set<string>()
 const workflowRuns = new Set<string>()
+const rdpOpening = new Set<string>()
 function sessionHost(id: string): Host {
   const host = store.read().hosts.find((item) => item.id === ssh.hostId(id))
   if (!host) throw new Error('Sunucu kaydı bulunamadı.')
@@ -167,7 +169,7 @@ function registerHandlers(): void {
       host.password = ''
     } else { host.privateKey = ''; host.passphrase = '' }
     const result = store.update((vault) => { const index = vault.hosts.findIndex((item) => item.id === host.id); if (index < 0) vault.hosts.push(host); else vault.hosts[index] = host })
-    if (previous && ['hostname', 'port', 'username', 'production', 'persistentSession'].some((key) => previous[key as keyof Host] !== host[key as keyof Host])) ssh.disconnectHost(host.id)
+    if (previous && ['protocol', 'hostname', 'port', 'username', 'production', 'persistentSession'].some((key) => previous[key as keyof Host] !== host[key as keyof Host])) ssh.disconnectHost(host.id)
     return result
   })
   handle('host:delete', (id: string) => { mutable(); const result = store.update((vault) => { vault.hosts = vault.hosts.filter((host) => host.id !== id) }); ssh.disconnectHost(id); return result })
@@ -176,6 +178,26 @@ function registerHandlers(): void {
     return store.update((vault) => { const index = vault.snippets.findIndex((item) => item.id === snippet.id); if (index < 0) vault.snippets.push(snippet); else vault.snippets[index] = snippet })
   })
   handle('snippet:delete', (id: string) => { mutable(); return store.update((vault) => { vault.snippets = vault.snippets.filter((snippet) => snippet.id !== id) }) })
+  handle('rdp:open', async (id: string) => {
+    mutable()
+    if (process.platform !== 'win32') throw new Error('RDP açma şu anda yalnızca Windows üzerinde destekleniyor.')
+    if (rdpOpening.has(id)) throw new Error('Bu sunucu için Uzak Masaüstü zaten açılıyor.')
+    const generation = epoch
+    const host = store.read().hosts.find((item) => item.id === id)
+    if (!host || host.protocol !== 'rdp') throw new Error('RDP sunucusu bulunamadı.')
+    validateHost(host)
+    rdpOpening.add(id)
+    try {
+      if (!await confirm((host.production ? 'ÜRETİM · ' : '') + 'Uzak Masaüstü açılsın mı?', host.name + '\n' + host.username + '@' + host.hostname + ':' + host.port + '\n\nWindows Uzak Masaüstü ayrı pencerede açılır. Parolayı orada girin. Nodus kilitlendiğinde veya kapandığında RDP penceresi açık kalır; oturumu ayrıca kapatın.' + (host.rdp?.clipboard ? '\n\nPano paylaşımı açık: kopyaladığınız bilgiler uzak bilgisayara aktarılabilir.' : ''), 'Uzak Masaüstü aç')) return false
+      autoLock.check()
+      if (generation !== epoch || !store.unlocked) throw new Error('Kasa kilitlendi. Uzak Masaüstü açılmadı.')
+      mutable()
+      const current = store.read().hosts.find((item) => item.id === id)
+      if (JSON.stringify(current) !== JSON.stringify(host)) throw new Error('Sunucu kaydı değişti. Tekrar bağlanın.')
+      await new RdpLauncher(join(app.getPath('temp'), 'nodus-rdp')).open(host)
+      return true
+    } finally { rdpOpening.delete(id) }
+  })
   handle('ssh:connect', async (id: string, password?: string) => {
     mutable()
     const generation = epoch

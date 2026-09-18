@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Host } from './shared'
 import { errorText } from './session'
 
-export function SessionControls({ id, host, closed, close, allowed, allow }: { id: string; host: Host; closed: boolean; close: () => void; allowed: boolean; allow: () => void }) {
+export function SessionControls({ id, host, persistentSession, closed, close, allowed, allow }: { id: string; host: Host; persistentSession: boolean; closed: boolean; close: () => void; allowed: boolean; allow: () => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [password, setPassword] = useState('')
@@ -30,10 +30,10 @@ export function SessionControls({ id, host, closed, close, allowed, allow }: { i
   }, [closed, automatic, busy, attempt, needsPassword])
   if (!closed && !host.production && !host.persistentSession) return null
   return <div className={'session-controls ' + (host.production ? 'production-note' : '')}>
-    <span>{host.production ? 'ÜRETİM · ' : ''}{host.persistentSession ? 'tmux kalıcı oturum' : 'Standart oturum'}{closed ? ' · Bağlantı kapalı' : ''}</span>
+    <span>{host.production ? 'ÜRETİM · ' : ''}{persistentSession ? 'tmux kalıcı oturum' : host.persistentSession ? 'Standart oturum · Sunucuda tmux yok' : 'Standart oturum'}{closed ? ' · Bağlantı kapalı' : ''}</span>
     {!closed && host.production && !allowed && <button className="secondary" onClick={() => { void window.nodus!.authorizeTerminal(id).then((accepted) => { if (accepted) allow() }).catch((failure) => setError(errorText(failure))) }}>Üretim terminalini aç</button>}
     {!closed && host.production && allowed && <span>Terminal girdisi açık; komutlar tek tek denetlenmez.</span>}
     {closed && <><label className="check"><input type="checkbox" checked={automatic} onChange={(event) => { setAutomatic(event.target.checked); setAttempt(0) }} />Otomatik yeniden bağlan (en fazla 3 deneme)</label>{needsPassword && <input aria-label="Yeniden bağlantı parolası" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="off" />}<button className="secondary" disabled={busy || (needsPassword && !password)} onClick={() => void reconnect(true)}>{busy ? 'Bağlanıyor…' : 'Yeniden bağlan'}</button><button className="secondary" onClick={close}>Sekmeyi kapat</button></>}
-    {closed && !host.persistentSession && <small>Yeni kabuk açılır; önceki işlemler otomatik tekrarlanmaz.</small>}{error && <span role="alert">{error}</span>}
+    {closed && !persistentSession && <small>Yeni kabuk açılır; önceki işlemler otomatik tekrarlanmaz.</small>}{error && <span role="alert">{error}</span>}
   </div>
 }

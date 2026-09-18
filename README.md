@@ -55,17 +55,23 @@ Kasa parolasını güvenli bir yerde sakla; unutulursa kurtarılamaz. Sunucunun 
 
 ## Kullanım
 
+**Dar pencerede gezinme:** Pencere daraldığında solda küçük bir simge şeridi kalır. Sunucular, favoriler, kestirmeler ve ayarlara buradan geçebilirsin. Üstteki menü düğmesi grupların bulunduğu tam menüyü açar; Escape veya menü dışına tıklama ile kapanır. Pencereyi büyüttüğünde normal menü düzeni geri gelir.
+
 **Terminalde kopyalama:** Metni seçip **Ctrl+C** ile kopyalayabilir, **Ctrl+V** ile yapıştırabilirsin. Seçim yokken **Ctrl+C** çalışan komutu keser. **Ctrl+Shift+C/V** ve **Shift+Insert** de kullanılabilir; macOS'ta **Cmd+C/V** desteklenir. Birden fazla satır yapıştırmadan önce içeriği kontrol et; bazı kabuklar satırları hemen çalıştırabilir.
 
 **Dosyalar:** SFTP panelinde dosyaya sağ tıklayıp düzenleyebilirsin. **Ctrl/Cmd+S** kayıt öncesi karşılaştırmayı açar. **Fark / Geçmiş** ile eski sürüme dönebilirsin. Editör 512 KB UTF-8 metin destekler. Son 20 dosyanın beşer sürümü cihazda saklanır; geçmiş kasa eşlemesine dahil değildir. Dosya silme işlemi geri alınamaz.
 
-**Kalıcı oturum:** Sunucu formunda **Kesintiye dayanıklı oturum (tmux)** seçeneğini aç. Sunucuda tmux kurulu olmalı. Bağlantı koparsa en fazla üç otomatik deneme yapılır. Uygulama kapansa veya kasa kilitlense de tmux içindeki işler sunucuda devam edebilir.
+**Sunucu kaydı:** Yeni sunucu ve hızlı bağlantı formuna girdiğin parola şifreli kasana otomatik kaydedilir. Başlangıç dizini sorulmaz; yeni kayıtlar kullanıcının giriş dizininden başlar. Dosya paneli dizin takibi varsayılan olarak açıktır. Standart Bash/Zsh oturumunda kabuk bildirimleri, tmux oturumunda iki saniyede bir etkin panelin dizini kullanılır. Eski kayıtların başlangıç dizini korunur.
+
+**Kalıcı oturum:** Yeni sunucularda **Kesintiye dayanıklı oturum (tmux)** varsayılan olarak açıktır; istersen kapatabilirsin. Sunucuda tmux varsa kullanılır, yoksa normal SSH oturumu açılır. Ekranda hangi oturumun kullanıldığı gösterilir. Bağlantı koparsa en fazla üç otomatik deneme yapılır. Uygulama kapansa veya kasa kilitlense de tmux içindeki işler sunucuda devam edebilir; standart oturum bu kalıcılığı sağlamaz.
 
 **Sunucu yönetimi:** Terminalin üstündeki **Sunucu yönetimi** düğmesinden Docker, servisler ve canlı günlüklere ulaşabilirsin. Araçların sunucuda kurulu olması ve SSH kullanıcısının erişim yetkisi bulunması gerekir. Otomatik sudo çalıştırılmaz.
 
 **Komut akışları:** Kestirme oluştururken **Parametreli komut akışı** seçeneğini işaretle. Her satıra bir komut yaz; değişkenleri ayrı, tırnaksız {{parametre}} alanlarıyla belirt. Çalıştırmadan önce değerler sorulur ve komutlar gösterilir. Akış ayrı kabukta çalışır; terminalin bulunduğu dizini devralmaz. En fazla 30 adım ve üç dakika desteklenir. Borular ve komut zincirleri desteklenmez. Hata durumunda durur; önceki adımları geri almaz. Bağlantı kesilirse tekrar çalıştırmadan önce uzaktaki işlemi kontrol et.
 
-**Üretim sunucuları:** Sunucu formunda üretim seçeneğini işaretleyebilirsin. Terminal girdisi ve dosya değişiklikleri için ek onay istenir. Terminal açıldıktan sonra yazılan komutlar tek tek denetlenmez.
+**Üretim sunucuları:** Gerçek kullanıcıların kullandığı sunucular için **Canlı sunucu: terminali açmadan ve dosyaları değiştirmeden önce onay iste** seçeneğini işaretleyebilirsin. Sunucu belirgin şekilde işaretlenir. Terminal girdisi ve dosya değişiklikleri için ek onay istenir; terminal açıldıktan sonra yazılan komutlar tek tek denetlenmez.
+
+**Windows Uzak Masaüstü (RDP):** Sunucu formunda **Bağlantı türü** olarak **RDP** seç. Yalnızca Windows sürümünde çalışır; sistemdeki Uzak Masaüstü istemcisini (mstsc.exe) ayrı pencerede açar. Parola kasaya kaydedilmez, Uzak Masaüstü penceresinde girilir. Nodus kilitlenince veya kapanınca RDP penceresi açık kalır; oturumu ayrıca kapat. Pano paylaşımı kapalı gelir; açarsan kopyaladığın bilgiler uzak bilgisayara aktarılabilir. Disk ve yazıcı paylaşımı kapalıdır.
 
 **Kasa eşleme:** Ayarlardan Google Drive veya HTTPS WebDAV bağlantısı ekleyebilirsin. Drive için kendi masaüstü OAuth JSON dosyan gerekir. Drive eşlemesi otomatik, WebDAV aktarımı manueldir. Bulut kullanmak istemiyorsan şifreli kasa yedeğini dışa aktarabilirsin.
 

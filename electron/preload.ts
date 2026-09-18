@@ -29,6 +29,7 @@ const api: NodusAPI = {
     return () => ipcRenderer.removeListener('vault:locked', handler)
   },
   connect: (id, password) => ipcRenderer.invoke('ssh:connect', id, password),
+  openRdp: (id) => ipcRenderer.invoke('rdp:open', id),
   reconnect: (id, password) => ipcRenderer.invoke('ssh:reconnect', id, password),
   authorizeTerminal: (id) => ipcRenderer.invoke('ssh:authorize', id),
   managedList: (id, kind) => ipcRenderer.invoke('ops:list', id, kind),

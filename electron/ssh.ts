@@ -35,13 +35,14 @@ export class CwdTracker {
   }
 }
 
-type Session = { client: Client; shell?: ClientChannel; sftp?: SFTPWrapper; sftpPending?: Promise<SFTPWrapper> }
+type Session = { client: Client; shell?: ClientChannel; sftp?: SFTPWrapper; sftpPending?: Promise<SFTPWrapper>; cwdTimer?: ReturnType<typeof setTimeout> }
 export class SSHManager {
   private sessions = new Map<string, Session>()
   private records = new Map<string, { hostId: string; persistent: boolean; production: boolean; terminalAllowed: boolean }>()
   private logs = new Map<string, { id: string; channel?: ClientChannel }>()
   constructor(private emit: (event: SessionEvent) => void, private verify: (host: Host, fingerprint: string) => Promise<boolean>) {}
-  async connect(host: Host, passwordOverride?: string, resumeId?: string): Promise<{ id: string; hostId: string; name: string }> {
+  async connect(host: Host, passwordOverride?: string, resumeId?: string): Promise<{ id: string; hostId: string; name: string; persistentSession: boolean }> {
+    if (host.protocol === 'rdp') throw new Error('RDP sunucusu SSH terminaliyle açılamaz. Uzak Masaüstü bağlantısını kullanın.')
     if (!resumeId && this.records.size >= 16) throw new Error('En fazla 16 açık oturum destekleniyor.')
     if (resumeId && (this.records.get(resumeId)?.hostId !== host.id || this.sessions.has(resumeId))) throw new Error('Oturum yeniden bağlanmaya uygun değil.')
     if (host.persistentSession && [...this.records].some(([key, record]) => key !== resumeId && record.hostId === host.id && record.persistent)) throw new Error('Bu sunucu için kalıcı oturum zaten açık.')
@@ -52,6 +53,7 @@ export class SSHManager {
     this.sessions.set(id, session)
     const decoder = new StringDecoder('utf8')
     const tracker = new CwdTracker()
+    let persistentSession = false
     try {
       await new Promise<void>((resolve, reject) => {
         const openingTimer = setTimeout(() => { reject(new Error('SSH oturum açma zaman aşımı.')); client.destroy() }, 30000)
@@ -59,7 +61,7 @@ export class SSHManager {
         client.once('error', () => clearTimeout(openingTimer))
         client.once('close', () => clearTimeout(openingTimer))
         client.on('error', (error: Error) => { this.emit({ id, type: 'error', data: error.message }); reject(error) })
-        client.on('close', () => { if (this.sessions.get(id) === session) { this.sessions.delete(id); this.stopLogs(id); this.emit({ id, type: 'closed', data: '' }) } reject(new Error('SSH bağlantısı kapandı.')) })
+        client.on('close', () => { clearTimeout(session.cwdTimer); if (this.sessions.get(id) === session) { this.sessions.delete(id); this.stopLogs(id); this.emit({ id, type: 'closed', data: '' }) } reject(new Error('SSH bağlantısı kapandı.')) })
         client.once('ready', () => {
         const opened = (error: Error | undefined, shell: ClientChannel) => {
             if (error) { reject(error); return }
@@ -74,15 +76,16 @@ export class SSHManager {
             shell.on('close', () => client.end())
             shell.on('error', (failure: Error) => this.emit({ id, type: 'error', data: failure.message }))
             const commands: string[] = []
-            if (host.initialPath && !host.persistentSession) commands.push('cd -- ' + shellQuote(host.initialPath))
-            if (host.followDirectory && !host.persistentSession) {
+            if (host.initialPath && !persistentSession) commands.push('cd -- ' + shellQuote(host.initialPath))
+            if (host.followDirectory && !persistentSession) {
               const report = "__nodus_cwd() { printf '\\033]7;file://localhost%s\\007' \"${PWD//%/%25}\"; }; "
               const bash = report + 'if declare -p PROMPT_COMMAND 2>/dev/null | grep -q "declare -a"; then PROMPT_COMMAND+=(__nodus_cwd); else PROMPT_COMMAND="__nodus_cwd${PROMPT_COMMAND:+; $PROMPT_COMMAND}"; fi; __nodus_cwd'
               const zsh = report + 'precmd_functions+=(__nodus_cwd); __nodus_cwd'
               commands.push('if [ -n "$BASH_VERSION" ]; then eval ' + shellQuote(bash) + '; elif [ -n "$ZSH_VERSION" ]; then eval ' + shellQuote(zsh) + '; fi')
             }
             if (commands.length) shell.write(commands.join('; ') + '\r')
-            this.emit({ id, type: 'ready', data: '' })
+            this.emit({ id, type: 'ready', data: '', persistentSession })
+            if (host.followDirectory && persistentSession) this.trackTmuxDirectory(id, session, host.id)
             finish()
           }
           if (host.persistentSession) {
@@ -91,8 +94,14 @@ export class SSHManager {
               probe.resume(); probe.stderr.resume()
               probe.on('error', reject)
               probe.on('close', (code: number) => {
-                if (code !== 0) { reject(new Error('Kalıcı oturum için sunucuda tmux kurulu olmalı.')); return }
                 if (this.sessions.get(id) !== session) { reject(new Error('Oturum kapandı.')); return }
+                if (code === 1 || code === 127) {
+                  this.records.get(id)!.persistent = false
+                  client.shell({ term: 'xterm-256color', cols: 110, rows: 32 }, opened)
+                  return
+                }
+                if (code !== 0) { reject(new Error('Sunucuda tmux kullanılabilirliği denetlenemedi.')); return }
+                persistentSession = true
                 const command = 'tmux new-session -A -s ' + shellQuote('nodus-' + host.id) + (host.initialPath ? ' -c ' + shellQuote(host.initialPath) : '')
                 client.exec(command, { pty: { term: 'xterm-256color', cols: 110, rows: 32 } }, opened)
               })
@@ -106,8 +115,28 @@ export class SSHManager {
           readyTimeout: 30000, keepaliveInterval: 15000, keepaliveCountMax: 3,
         })
       })
-      return { id, hostId: host.id, name: host.name }
+      return { id, hostId: host.id, name: host.name, persistentSession }
     } catch (error) { client.destroy(); if (this.sessions.get(id) === session) this.sessions.delete(id); if (!resumeId) this.records.delete(id); throw error }
+  }
+  private trackTmuxDirectory(id: string, session: Session, hostId: string): void {
+    let previous = ''
+    const poll = async () => {
+      if (this.sessions.get(id) !== session) return
+      try {
+        const result = await this.exec(id, 'tmux display-message -p -t ' + shellQuote('=nodus-' + hostId + ':') + ' ' + shellQuote('#{pane_current_path}'), 5000)
+        if (this.sessions.get(id) !== session) return
+        const path = result.stdout.replace(/\r?\n$/, '')
+        if (result.code === 0 && path.startsWith('/') && path !== previous) {
+          remotePath(path)
+          previous = path
+          this.emit({ id, type: 'cwd', data: path })
+        }
+      } catch {}
+      finally {
+        if (this.sessions.get(id) === session) session.cwdTimer = setTimeout(() => void poll(), 2000)
+      }
+    }
+    void poll()
   }
   hostId(id: string): string { const record = this.records.get(id); if (!record) throw new Error('Oturum bulunamadı.'); return record.hostId }
   connected(id: string): boolean { return !!this.sessions.get(id)?.shell }
@@ -128,7 +157,7 @@ export class SSHManager {
   resize(id: string, cols: number, rows: number): void {
     if (Number.isInteger(cols) && Number.isInteger(rows) && cols > 0 && rows > 0 && cols < 1000 && rows < 1000) this.sessions.get(id)?.shell?.setWindow(rows, cols, 0, 0)
   }
-  disconnect(id: string): void { this.stopLogs(id); this.records.delete(id); const session = this.sessions.get(id); this.sessions.delete(id); session?.client.destroy(); this.emit({ id, type: 'closed', data: '' }) }
+  disconnect(id: string): void { this.stopLogs(id); this.records.delete(id); const session = this.sessions.get(id); clearTimeout(session?.cwdTimer); this.sessions.delete(id); session?.client.destroy(); this.emit({ id, type: 'closed', data: '' }) }
   closeAll(): void { for (const id of this.records.keys()) this.disconnect(id) }
   async startLog(id: string, token: string, source: LogSource, emit: (event: LogEvent) => void): Promise<void> {
     const command = logCommand(source)

@@ -18,6 +18,10 @@ test('persistent SSH reconnect preserves ID, verifies keys, gates production inp
   const commands: string[] = []
   const inputs: string[] = []
   let tmux = true
+  let missingCode = 127
+  let tmuxPath = '/srv/ilk dizin'
+  let shellCount = 0
+  let refuseProbe = false
   let verified = 0
   let acceptKey = true
   const server = new Server({ hostKeys: [serverKey] }, (client) => {
@@ -27,11 +31,20 @@ test('persistent SSH reconnect preserves ID, verifies keys, gates production inp
       const session = accept()
       session.on('pty', (acceptPty) => acceptPty?.())
       session.on('window-change', (acceptResize) => acceptResize?.())
-      session.on('exec', (acceptExec, _reject, info) => {
+      session.on('shell', (acceptShell) => {
+        shellCount++
+        const stream = acceptShell()
+        stream.on('error', () => {})
+        stream.on('data', (chunk: Buffer) => inputs.push(chunk.toString()))
+        stream.write('standard shell\r\n')
+      })
+      session.on('exec', (acceptExec, rejectExec, info) => {
         commands.push(info.command)
+        if (refuseProbe && info.command === 'command -v tmux') { rejectExec(); return }
         const stream = acceptExec()
         stream.on('error', () => {})
-        if (info.command === 'command -v tmux') { stream.exit(tmux ? 0 : 127); stream.end(); return }
+        if (info.command === 'command -v tmux') { stream.exit(tmux ? 0 : missingCode); stream.end(); return }
+        if (info.command.startsWith('tmux display-message')) { stream.write(tmuxPath + '\n'); stream.exit(0); stream.end(); return }
         if (info.command.startsWith('tmux new-session')) { stream.write('persistent shell\r\n'); stream.on('data', (chunk: Buffer) => inputs.push(chunk.toString())); return }
         if (info.command.startsWith('tail ') || info.command.startsWith('docker logs ')) {
           const bytes = Buffer.from('ERROR Türkçe günlük\n')
@@ -49,6 +62,13 @@ test('persistent SSH reconnect preserves ID, verifies keys, gates production inp
   const manager = new SSHManager((event) => events.push(event), async () => { verified++; return acceptKey })
   try {
     const connection = await manager.connect(host, 'fixture-password')
+    assert.equal(connection.persistentSession, true)
+    await waitFor(() => events.some((event) => event.type === 'cwd' && event.data === tmuxPath))
+    assert.ok(commands.includes("tmux display-message -p -t '=nodus-persistent-fixture:' '#{pane_current_path}'"))
+    tmuxPath = '/srv/ikinci dizin'
+    await delay(2100)
+    await waitFor(() => events.some((event) => event.type === 'cwd' && event.data === tmuxPath))
+    assert.equal(shellCount, 0)
     assert.equal(host.password, '')
     assert.ok(commands.includes("tmux new-session -A -s 'nodus-persistent-fixture' -c '/srv/it'\\''s here'"))
     assert.equal(manager.hostId(connection.id), host.id)
@@ -80,9 +100,31 @@ test('persistent SSH reconnect preserves ID, verifies keys, gates production inp
     acceptKey = false
     await assert.rejects(manager.connect(host, 'fixture-password', connection.id), /verification/i)
     acceptKey = true; tmux = false
-    await assert.rejects(manager.connect(host, 'fixture-password', connection.id), /tmux/)
+    const fallback = await manager.connect(host, 'fixture-password', connection.id)
+    assert.equal(fallback.id, connection.id)
+    assert.equal(fallback.persistentSession, false)
+    assert.equal(host.persistentSession, true)
+    assert.equal(shellCount, 1)
+    await waitFor(() => inputs.some((input) => input.includes('__nodus_cwd') && input.includes("cd -- '/srv/it'\\''s here'")))
+    assert.equal(events.filter((event) => event.type === 'ready').at(-1)?.persistentSession, false)
+    const pollCount = commands.filter((command) => command.startsWith('tmux display-message')).length
+    await delay(2100)
+    assert.equal(commands.filter((command) => command.startsWith('tmux display-message')).length, pollCount)
+    missingCode = 1
+    const anotherFallback = await manager.connect(host, 'fixture-password')
+    assert.equal(anotherFallback.persistentSession, false)
+    assert.equal(shellCount, 2)
+    manager.disconnect(anotherFallback.id)
+    missingCode = 126
+    await assert.rejects(manager.connect(host, 'fixture-password'), /denetlenemedi/)
+    refuseProbe = true
+    await assert.rejects(manager.connect(host, 'fixture-password'))
+    assert.equal(shellCount, 2)
     assert.ok(verified >= 4)
     manager.closeAll()
+    const closedPollCount = commands.filter((command) => command.startsWith('tmux display-message')).length
+    await delay(2100)
+    assert.equal(commands.filter((command) => command.startsWith('tmux display-message')).length, closedPollCount)
     assert.throws(() => manager.hostId(connection.id), /bulunamadı/)
     await assert.rejects(manager.connect(host, 'fixture-password', connection.id), /uygun değil/)
   } finally {

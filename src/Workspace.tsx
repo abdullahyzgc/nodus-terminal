@@ -43,6 +43,7 @@ export function Workspace({
   const fitRef = useRef<FitAddon | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const [closed, setClosed] = useState(sessionSnapshot(connection.id).closed);
+  const [persistentSession, setPersistentSession] = useState(sessionSnapshot(connection.id).persistentSession ?? connection.persistentSession ?? false);
   const [operations, setOperations] = useState(false);
   const [terminalAllowed, setTerminalAllowed] = useState(!host.production);
   const [files, setFiles] = useState(false);
@@ -111,6 +112,7 @@ export function Workspace({
     const unsubscribe = subscribeSession(connection.id, (event) => {
       if (event.type === "data") terminal.write(event.data);
       if (event.type === "ready") {
+        setPersistentSession(event.persistentSession ?? false);
         setClosed(false);
         setTerminalAllowed(!host.production);
         resize();
@@ -193,6 +195,7 @@ export function Workspace({
       <SessionControls
         id={connection.id}
         host={host}
+        persistentSession={persistentSession}
         closed={closed}
         close={close}
         allowed={terminalAllowed}

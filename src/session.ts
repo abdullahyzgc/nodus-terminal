@@ -1,6 +1,6 @@
 import type { SessionEvent } from './shared'
 
-type Snapshot = { output: string; cwd: string; closed: boolean }
+type Snapshot = { output: string; cwd: string; closed: boolean; persistentSession?: boolean }
 const snapshots = new Map<string, Snapshot>()
 const listeners = new Map<string, Set<(event: SessionEvent) => void>>()
 const forgotten = new Set<string>()
@@ -14,7 +14,7 @@ export function startSessions(): void {
     if (event.type === 'data') snapshot.output = (snapshot.output + event.data).slice(-512 * 1024)
     if (event.type === 'cwd') snapshot.cwd = event.data
     if (event.type === 'closed') snapshot.closed = true
-    if (event.type === 'ready') snapshot.closed = false
+    if (event.type === 'ready') { snapshot.closed = false; snapshot.persistentSession = event.persistentSession }
     snapshots.set(event.id, snapshot)
     if (snapshots.size > 32) snapshots.delete(snapshots.keys().next().value!)
     listeners.get(event.id)?.forEach((listener) => listener(event))
