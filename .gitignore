@@ -38,6 +38,7 @@ service-account*.json
 .azure/
 .config/
 .codex/
+.claude/
 .idea/
 .vscode/
 .public-export/
