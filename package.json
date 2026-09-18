@@ -1,6 +1,6 @@
 {
   "name": "nodus-ssh",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "Private SSH and SFTP workspace",
   "author": "Nodus",
